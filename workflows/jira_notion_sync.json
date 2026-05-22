@@ -6,7 +6,8 @@
         "rule": {
           "interval": [
             {
-              "field": "minutes"
+              "field": "minutes",
+              "minutesInterval": 8
             }
           ]
         }
@@ -26,7 +27,7 @@
         "returnAll": true,
         "options": {
           "fields": "summary,status,priority,assignee,issuetype,duedate,parent",
-          "jql": "project = RC1 AND updated >= -31m"
+          "jql": "project = RC1 AND updated >= -10m"
         }
       },
       "id": "e5c86ed2-66e1-4ae2-98d4-6e5d68967a66",
@@ -37,6 +38,7 @@
         -976,
         160
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "jiraSoftwareCloudApi": {
           "id": "VLcJHetLVoaw3AWA",
@@ -96,7 +98,7 @@
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": "={{ 5 }}"
+              "minutesInterval": 8
             }
           ]
         }
@@ -723,7 +725,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   },
-  "versionId": "4c0f0843-d275-4a7a-862d-e980a7dd6d12",
+  "versionId": "4e04513a-ad01-42de-bb98-17a859519617",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "70cc12ed831b07be2e8bc830221fea0d25864191f004079945a8a3eaa201d39b"
