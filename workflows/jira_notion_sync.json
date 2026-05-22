@@ -26,7 +26,7 @@
         "returnAll": true,
         "options": {
           "fields": "summary,status,priority,assignee,issuetype,duedate,parent",
-          "jql": "project = RC1 AND parent = RC1-31"
+          "jql": "project = RC1 AND updated >= -31m"
         }
       },
       "id": "e5c86ed2-66e1-4ae2-98d4-6e5d68967a66",
@@ -723,7 +723,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   },
-  "versionId": "cb351f0d-b644-463d-b805-d5dcd401ff41",
+  "versionId": "4c0f0843-d275-4a7a-862d-e980a7dd6d12",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "70cc12ed831b07be2e8bc830221fea0d25864191f004079945a8a3eaa201d39b"
