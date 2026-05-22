@@ -1,0 +1,733 @@
+{
+  "name": "jira_notion_sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "a1e74121-8eeb-4ca5-9697-fdd696b995d3",
+      "name": "Every 30 min (Jira → Notion)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1200,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "options": {
+          "fields": "summary,status,priority,assignee,issuetype,duedate,parent",
+          "jql": "project = RC1 AND parent = RC1-31"
+        }
+      },
+      "id": "e5c86ed2-66e1-4ae2-98d4-6e5d68967a66",
+      "name": "Jira — Get Updated Issues",
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        -976,
+        160
+      ],
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "VLcJHetLVoaw3AWA",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "33a19189-ce72-4fd2-8002-974fe47f5663",
+      "name": "Loop Over Jira Issues",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -752,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-page-exists",
+              "leftValue": "={{ $json.results[0].id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "664f6545-026d-402d-916f-14966ccf94b4",
+      "name": "IF — Page Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": "={{ 5 }}"
+            }
+          ]
+        }
+      },
+      "id": "9850909b-028f-4593-96be-647266208d89",
+      "name": "Every 30 min (Notion → Jira)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1200,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "c71476ea-caa3-45d1-8a2a-9234c41544f5",
+      "name": "Loop Over Notion Pages",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -752,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-has-jira-key",
+              "leftValue": "={{ $json.properties['Jira Key'].rich_text[0].plain_text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "df14a717-1e4c-4a2c-84dc-e2ad355ff79d",
+      "name": "IF — Has Jira Key?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "options": {}
+      },
+      "id": "96293df6-5382-49f4-926a-67d678abea08",
+      "name": "Jira — Get Transitions",
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        480
+      ],
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "VLcJHetLVoaw3AWA",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const notionStatus = $('Loop Over Notion Pages').item.json.properties.Status.select.name;\nconst transitions = $input.all();\n\nconst statusMap = {\n  'To Do': ['To Do', 'Open', 'Backlog'],\n  'In Progress': ['In Progress', 'In Development', 'Start Progress'],\n  'Done': ['Done', 'Closed', 'Resolve Issue', 'Mark as Done']\n};\n\nconst targetNames = statusMap[notionStatus] || [notionStatus];\n\nconst match = transitions.find(t =>\n  targetNames.some(name =>\n    t.json.name?.toLowerCase().includes(name.toLowerCase())\n  )\n);\n\nreturn [{\n  json: {\n    transitionId: match ? match.json.id : null,\n    transitionName: match ? match.json.name : null,\n    notionStatus,\n    jiraKey: $('Loop Over Notion Pages').item.json.properties['Jira Key'].rich_text[0].plain_text,\n    priority: $('Loop Over Notion Pages').item.json.properties.Priority.select.name\n  }\n}];"
+      },
+      "id": "9e2a1355-156e-41bc-89e8-6e942b863803",
+      "name": "Map Notion Status → Jira Transition",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-has-transition",
+              "leftValue": "={{ $json.transitionId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "24e27d8d-584b-4447-b829-687ae4aa66b9",
+      "name": "IF — Valid Transition Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        368,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "issueKey": "={{ $json.jiraKey }}",
+        "updateFields": {
+          "priority": {
+            "__rl": true,
+            "mode": "list",
+            "value": "{{ $json.priority }}"
+          }
+        }
+      },
+      "id": "bd837343-535e-45c5-b666-76d863474a4f",
+      "name": "Jira — Update Priority",
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        816,
+        552
+      ],
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "VLcJHetLVoaw3AWA",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "29ad45e2-037b-4045-83ad-f6bde3e84ca1",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1200,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const error = $input.first().json;\nreturn [{\n  json: {\n    message: `⚠️ Jira↔Notion sync failed\\nWorkflow: ${error.workflow?.name || 'RC1 Sync'}\\nError: ${error.execution?.error?.message || 'Unknown error'}\\nTime: ${new Date().toISOString()}\\nExecution: ${error.execution?.id}`\n  }\n}];"
+      },
+      "id": "162c29d7-6ff4-4068-a163-197c56015b97",
+      "name": "Format Error Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B4L4L5H4J",
+          "mode": "id"
+        },
+        "text": "={{ $json.message }}",
+        "otherOptions": {}
+      },
+      "id": "1cc77b8a-6d22-4c62-a4fe-cd7497521398",
+      "name": "Slack — Send Error Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        -752,
+        848
+      ],
+      "webhookId": "d3cf4309-6a8c-4c6b-bf0d-b35badd9f4d8",
+      "credentials": {
+        "slackApi": {
+          "id": "iDpIzj9mpwMsdoXS",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://hirereidcollins.atlassian.net/rest/api/3/issue/{{ $json.jiraKey }}/transitions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"transition\": {\n    \"id\": \"{{ $json.transitionId }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        592,
+        480
+      ],
+      "id": "12bada51-e1d9-469e-8bca-130eb0aba6e3",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "jHWzpz41qUPqyjaM",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/pages/{{ $json.results[0].id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"Status\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.status.name }}\" } },\n    \"Priority\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.priority.name }}\" } },\n    \"Assignee\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.assignee?.displayName ?? 'Unassigned' }}\" } }] },\n    \"Last Synced\": { \"date\": { \"start\": \"{{ $now }}\" } }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        144,
+        64
+      ],
+      "id": "bcc32a24-947e-4ce7-a351-cb8da8ed5d40",
+      "name": "HTTP Request1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QhHsL7gPVAnNLeop",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"parent\": { \"database_id\": \"a6d97762-f3b8-44db-abff-d51688ef6ece\" },\n  \"properties\": {\n    \"Name\": { \"title\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.summary }}\" } }] },\n    \"Jira Key\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.key }}\" } }] },\n    \"Status\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.status.name }}\" } },\n    \"Priority\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.priority.name }}\" } },\n    \"Assignee\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.assignee?.displayName ?? 'Unassigned' }}\" } }] },\n    \"Issue Type\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.issuetype.name }}\" } },\n    \"Epic\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.parent?.key ?? 'RC1-31' }}\" } }] },\n    \"Jira URL\": { \"url\": \"https://hirereidcollins.atlassian.net/browse/{{ $('Loop Over Jira Issues').item.json.key }}\" },\n    \"Last Synced\": { \"date\": { \"start\": \"{{ $now.toISO() }}\" } }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        144,
+        256
+      ],
+      "id": "62f6af6b-edba-4665-88dd-e4cc4f08ec61",
+      "name": "HTTP Request2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QhHsL7gPVAnNLeop",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/a6d97762-f3b8-44db-abff-d51688ef6ece/query",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filter\": {\n    \"timestamp\": \"last_edited_time\",\n    \"last_edited_time\": {\n      \"after\": \"{{ $now.minus(30, 'minutes').toISO() }}\"\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -976,
+        624
+      ],
+      "id": "ea33673d-91f7-4d87-9a0f-adc8684dfcf8",
+      "name": "HTTP Request3",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QhHsL7gPVAnNLeop",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/a6d97762-f3b8-44db-abff-d51688ef6ece/query",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filter\": {\n    \"property\": \"Jira Key\",\n    \"rich_text\": {\n      \"equals\": \"{{ $json.key }}\"\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -304,
+        88
+      ],
+      "id": "003b5a49-152e-433a-aa13-dd4e8ce78725",
+      "name": "HTTP Request4",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QhHsL7gPVAnNLeop",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -528,
+        88
+      ],
+      "id": "8800eaa1-def1-47b9-8172-bf5cb8b42f90",
+      "name": "Wait",
+      "webhookId": "b4371ee6-a4df-4d1a-bb7b-129db6dc67c9"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -528,
+        480
+      ],
+      "id": "93d40aa5-798c-4f35-a011-0453f8a7ff10",
+      "name": "Wait1",
+      "webhookId": "ec6f57af-7dbb-4960-9b6d-fda1a56aed55"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 30 min (Jira → Notion)": {
+      "main": [
+        [
+          {
+            "node": "Jira — Get Updated Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira — Get Updated Issues": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jira Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Jira Issues": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF — Page Exists?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jira Issues",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Jira Issues",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 30 min (Notion → Jira)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Notion Pages": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF — Has Jira Key?": {
+      "main": [
+        [
+          {
+            "node": "Jira — Get Transitions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira — Get Transitions": {
+      "main": [
+        [
+          {
+            "node": "Map Notion Status → Jira Transition",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Notion Status → Jira Transition": {
+      "main": [
+        [
+          {
+            "node": "IF — Valid Transition Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF — Valid Transition Found?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Notion Pages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira — Update Priority": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Notion Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Message": {
+      "main": [
+        [
+          {
+            "node": "Slack — Send Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Jira — Update Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Notion Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "IF — Page Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "IF — Has Jira Key?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "cb351f0d-b644-463d-b805-d5dcd401ff41",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "70cc12ed831b07be2e8bc830221fea0d25864191f004079945a8a3eaa201d39b"
+  },
+  "id": "2zXMkBAbL32Pnqrc",
+  "tags": []
+}
