@@ -38,7 +38,7 @@
         -976,
         160
       ],
-      "alwaysOutputData": true,
+      "alwaysOutputData": false,
       "credentials": {
         "jiraSoftwareCloudApi": {
           "id": "VLcJHetLVoaw3AWA",
@@ -242,7 +242,7 @@
       "typeVersion": 1,
       "position": [
         816,
-        552
+        560
       ],
       "credentials": {
         "jiraSoftwareCloudApi": {
@@ -380,7 +380,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"parent\": { \"database_id\": \"a6d97762-f3b8-44db-abff-d51688ef6ece\" },\n  \"properties\": {\n    \"Name\": { \"title\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.summary }}\" } }] },\n    \"Jira Key\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.key }}\" } }] },\n    \"Status\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.status.name }}\" } },\n    \"Priority\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.priority.name }}\" } },\n    \"Assignee\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.assignee?.displayName ?? 'Unassigned' }}\" } }] },\n    \"Issue Type\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.issuetype.name }}\" } },\n    \"Epic\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.parent?.key ?? 'RC1-31' }}\" } }] },\n    \"Jira URL\": { \"url\": \"https://hirereidcollins.atlassian.net/browse/{{ $('Loop Over Jira Issues').item.json.key }}\" },\n    \"Last Synced\": { \"date\": { \"start\": \"{{ $now.toISO() }}\" } }\n  }\n}",
+        "jsonBody": "={\n  \"parent\": { \"database_id\": \"a6d97762-f3b8-44db-abff-d51688ef6ece\" },\n  \"properties\": {\n    \"Name\": { \"title\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.summary }}\" } }] },\n    \"Jira Key\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.key }}\" } }] },\n    \"Status\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.status.name }}\" } },\n    \"Priority\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.priority.name }}\" } },\n    \"Assignee\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.assignee?.displayName ?? 'Unassigned' }}\" } }] },\n    \"Issue Type\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.issuetype.name }}\" } },\n    \"Epic\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.parent?.key ?? '' }}\" } }] },\n    \"Jira URL\": { \"url\": \"https://hirereidcollins.atlassian.net/browse/{{ $('Loop Over Jira Issues').item.json.key }}\" },\n    \"Last Synced\": { \"date\": { \"start\": \"{{ $now.toISO() }}\" } }\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -457,7 +457,7 @@
       "typeVersion": 4.4,
       "position": [
         -304,
-        88
+        96
       ],
       "id": "003b5a49-152e-433a-aa13-dd4e8ce78725",
       "name": "HTTP Request4",
@@ -474,7 +474,7 @@
       "typeVersion": 1.1,
       "position": [
         -528,
-        88
+        96
       ],
       "id": "8800eaa1-def1-47b9-8172-bf5cb8b42f90",
       "name": "Wait",
@@ -725,7 +725,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   },
-  "versionId": "4e04513a-ad01-42de-bb98-17a859519617",
+  "versionId": "9815cb8f-62f6-49a3-affc-c257a849a87a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "70cc12ed831b07be2e8bc830221fea0d25864191f004079945a8a3eaa201d39b"
