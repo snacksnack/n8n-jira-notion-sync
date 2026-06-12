@@ -6,14 +6,14 @@
         "rule": {
           "interval": [
             {
-              "field": "minutes",
-              "minutesInterval": 8
+              "field": "hours",
+              "hoursInterval": 1
             }
           ]
         }
       },
       "id": "a1e74121-8eeb-4ca5-9697-fdd696b995d3",
-      "name": "Every 30 min (Jira → Notion)",
+      "name": "Every hour (Jira → Notion)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
       "position": [
@@ -97,14 +97,14 @@
         "rule": {
           "interval": [
             {
-              "field": "minutes",
-              "minutesInterval": 8
+              "field": "hours",
+              "hoursInterval": 1
             }
           ]
         }
       },
       "id": "9850909b-028f-4593-96be-647266208d89",
-      "name": "Every 30 min (Notion → Jira)",
+      "name": "Every hour (Notion → Jira)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
       "position": [
@@ -495,17 +495,6 @@
   ],
   "pinData": {},
   "connections": {
-    "Every 30 min (Jira → Notion)": {
-      "main": [
-        [
-          {
-            "node": "Jira — Get Updated Issues",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Jira — Get Updated Issues": {
       "main": [
         [
@@ -551,17 +540,6 @@
           },
           {
             "node": "HTTP Request2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Every 30 min (Notion → Jira)": {
-      "main": [
-        [
-          {
-            "node": "HTTP Request3",
             "type": "main",
             "index": 0
           }
@@ -710,6 +688,28 @@
         [
           {
             "node": "IF — Has Jira Key?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every hour (Jira → Notion)": {
+      "main": [
+        [
+          {
+            "node": "Jira — Get Updated Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every hour (Notion → Jira)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
             "type": "main",
             "index": 0
           }
