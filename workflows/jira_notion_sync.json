@@ -6,14 +6,14 @@
         "rule": {
           "interval": [
             {
-              "field": "hours",
-              "hoursInterval": 1
+              "field": "cronExpression",
+              "expression": "0 */2 * * *"
             }
           ]
         }
       },
       "id": "a1e74121-8eeb-4ca5-9697-fdd696b995d3",
-      "name": "Every hour (Jira → Notion)",
+      "name": "Every 2 h at :00 (Jira → Notion)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
       "position": [
@@ -27,7 +27,7 @@
         "returnAll": true,
         "options": {
           "fields": "summary,status,priority,assignee,issuetype,duedate,parent",
-          "jql": "project = RC1 AND updated >= -10m"
+          "jql": "project = RC1 AND updated >= -125m"
         }
       },
       "id": "e5c86ed2-66e1-4ae2-98d4-6e5d68967a66",
@@ -97,14 +97,14 @@
         "rule": {
           "interval": [
             {
-              "field": "hours",
-              "hoursInterval": 1
+              "field": "cronExpression",
+              "expression": "15 */2 * * *"
             }
           ]
         }
       },
       "id": "9850909b-028f-4593-96be-647266208d89",
-      "name": "Every hour (Notion → Jira)",
+      "name": "Every 2 h at :15 (Notion → Jira)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
       "position": [
@@ -137,11 +137,20 @@
           "conditions": [
             {
               "id": "condition-has-jira-key",
-              "leftValue": "={{ $json.properties['Jira Key'].rich_text[0].plain_text }}",
+              "leftValue": "={{ $json.properties['Jira Key'].rich_text[0]?.plain_text }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
                 "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "condition-not-echo",
+              "leftValue": "={{ new Date($json.last_edited_time).getTime() - new Date($json.properties['Last Synced']?.date?.start ?? 0).getTime() }}",
+              "rightValue": 60000,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
               }
             }
           ],
@@ -150,7 +159,7 @@
         "options": {}
       },
       "id": "df14a717-1e4c-4a2c-84dc-e2ad355ff79d",
-      "name": "IF — Has Jira Key?",
+      "name": "IF — Has Jira Key & Not Echo?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -226,28 +235,27 @@
     },
     {
       "parameters": {
-        "operation": "update",
-        "issueKey": "={{ $json.jiraKey }}",
-        "updateFields": {
-          "priority": {
-            "__rl": true,
-            "mode": "list",
-            "value": "{{ $json.priority }}"
-          }
-        }
+        "method": "PUT",
+        "url": "={{ $vars.JIRA_BASE_URL }}/rest/api/3/issue/{{ $('Map Notion Status → Jira Transition').item.json.jiraKey }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"fields\": {\n    \"priority\": { \"name\": \"{{ $('Map Notion Status → Jira Transition').item.json.priority }}\" }\n  }\n}",
+        "options": {}
       },
       "id": "bd837343-535e-45c5-b666-76d863474a4f",
       "name": "Jira — Update Priority",
-      "type": "n8n-nodes-base.jira",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
       "position": [
         816,
         560
       ],
       "credentials": {
-        "jiraSoftwareCloudApi": {
-          "id": "VLcJHetLVoaw3AWA",
-          "name": "Jira SW Cloud account"
+        "httpBasicAuth": {
+          "id": "jHWzpz41qUPqyjaM",
+          "name": "Jira REST API (Basic Auth)"
         }
       }
     },
@@ -264,7 +272,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const error = $input.first().json;\nreturn [{\n  json: {\n    message: `⚠️ Jira↔Notion sync failed\\nWorkflow: ${error.workflow?.name || 'RC1 Sync'}\\nError: ${error.execution?.error?.message || 'Unknown error'}\\nTime: ${new Date().toISOString()}\\nExecution: ${error.execution?.id}`\n  }\n}];"
+        "jsCode": "const error = $input.first().json;\nreturn [{\n  json: {\n    message: `⚠️ Jira↔Notion sync failed\\nWorkflow: ${error.workflow?.name || 'RC1 Sync'}\\nFailed node: ${error.execution?.lastNodeExecuted || 'unknown'}\\nError: ${error.execution?.error?.message || 'Unknown error'}\\nTime: ${new Date().toISOString()}\\nExecution: ${error.execution?.id}`\n  }\n}];"
       },
       "id": "162c29d7-6ff4-4068-a163-197c56015b97",
       "name": "Format Error Message",
@@ -305,7 +313,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://hirereidcollins.atlassian.net/rest/api/3/issue/{{ $json.jiraKey }}/transitions",
+        "url": "={{ $vars.JIRA_BASE_URL }}/rest/api/3/issue/{{ $json.jiraKey }}/transitions",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
@@ -320,11 +328,11 @@
         480
       ],
       "id": "12bada51-e1d9-469e-8bca-130eb0aba6e3",
-      "name": "HTTP Request",
+      "name": "Jira — Apply Transition",
       "credentials": {
         "httpBasicAuth": {
           "id": "jHWzpz41qUPqyjaM",
-          "name": "Unnamed credential"
+          "name": "Jira REST API (Basic Auth)"
         }
       }
     },
@@ -345,7 +353,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"properties\": {\n    \"Status\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.status.name }}\" } },\n    \"Priority\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.priority.name }}\" } },\n    \"Assignee\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.assignee?.displayName ?? 'Unassigned' }}\" } }] },\n    \"Last Synced\": { \"date\": { \"start\": \"{{ $now }}\" } }\n  }\n}",
+        "jsonBody": "={\n  \"properties\": {\n    \"Status\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.status.name }}\" } },\n    \"Priority\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.priority.name }}\" } },\n    \"Assignee\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.assignee?.displayName ?? 'Unassigned' }}\" } }] },\n    \"Last Synced\": { \"date\": { \"start\": \"{{ $now.toISO() }}\" } }\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -355,7 +363,7 @@
         64
       ],
       "id": "bcc32a24-947e-4ce7-a351-cb8da8ed5d40",
-      "name": "HTTP Request1",
+      "name": "Notion — Update Page",
       "credentials": {
         "httpHeaderAuth": {
           "id": "QhHsL7gPVAnNLeop",
@@ -380,7 +388,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"parent\": { \"database_id\": \"a6d97762-f3b8-44db-abff-d51688ef6ece\" },\n  \"properties\": {\n    \"Name\": { \"title\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.summary }}\" } }] },\n    \"Jira Key\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.key }}\" } }] },\n    \"Status\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.status.name }}\" } },\n    \"Priority\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.priority.name }}\" } },\n    \"Assignee\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.assignee?.displayName ?? 'Unassigned' }}\" } }] },\n    \"Issue Type\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.issuetype.name }}\" } },\n    \"Epic\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.parent?.key ?? '' }}\" } }] },\n    \"Jira URL\": { \"url\": \"https://hirereidcollins.atlassian.net/browse/{{ $('Loop Over Jira Issues').item.json.key }}\" },\n    \"Last Synced\": { \"date\": { \"start\": \"{{ $now.toISO() }}\" } }\n  }\n}",
+        "jsonBody": "={\n  \"parent\": { \"database_id\": \"{{ $vars.NOTION_DB_ID }}\" },\n  \"properties\": {\n    \"Name\": { \"title\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.summary }}\" } }] },\n    \"Jira Key\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.key }}\" } }] },\n    \"Status\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.status.name }}\" } },\n    \"Priority\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.priority.name }}\" } },\n    \"Assignee\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.assignee?.displayName ?? 'Unassigned' }}\" } }] },\n    \"Issue Type\": { \"select\": { \"name\": \"{{ $('Loop Over Jira Issues').item.json.fields.issuetype.name }}\" } },\n    \"Epic\": { \"rich_text\": [{ \"text\": { \"content\": \"{{ $('Loop Over Jira Issues').item.json.fields.parent?.key ?? '' }}\" } }] },\n    \"Jira URL\": { \"url\": \"{{ $vars.JIRA_BASE_URL }}/browse/{{ $('Loop Over Jira Issues').item.json.key }}\" },\n    \"Last Synced\": { \"date\": { \"start\": \"{{ $now.toISO() }}\" } }\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -390,7 +398,7 @@
         256
       ],
       "id": "62f6af6b-edba-4665-88dd-e4cc4f08ec61",
-      "name": "HTTP Request2",
+      "name": "Notion — Create Page",
       "credentials": {
         "httpHeaderAuth": {
           "id": "QhHsL7gPVAnNLeop",
@@ -401,7 +409,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.notion.com/v1/databases/a6d97762-f3b8-44db-abff-d51688ef6ece/query",
+        "url": "=https://api.notion.com/v1/databases/{{ $vars.NOTION_DB_ID }}/query",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -415,8 +423,28 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"filter\": {\n    \"timestamp\": \"last_edited_time\",\n    \"last_edited_time\": {\n      \"after\": \"{{ $now.minus(30, 'minutes').toISO() }}\"\n    }\n  }\n}",
-        "options": {}
+        "jsonBody": "={\n  \"page_size\": 100,\n  \"filter\": {\n    \"timestamp\": \"last_edited_time\",\n    \"last_edited_time\": {\n      \"after\": \"{{ $now.minus(125, 'minutes').toISO() }}\"\n    }\n  }\n}",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start_cursor",
+                    "value": "={{ $response.body.next_cursor }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.has_more === false }}",
+              "limitPagesFetched": true,
+              "maxRequests": 50,
+              "requestInterval": 350
+            }
+          }
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -425,7 +453,7 @@
         624
       ],
       "id": "ea33673d-91f7-4d87-9a0f-adc8684dfcf8",
-      "name": "HTTP Request3",
+      "name": "Notion — Get Changed Pages",
       "credentials": {
         "httpHeaderAuth": {
           "id": "QhHsL7gPVAnNLeop",
@@ -436,7 +464,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.notion.com/v1/databases/a6d97762-f3b8-44db-abff-d51688ef6ece/query",
+        "url": "=https://api.notion.com/v1/databases/{{ $vars.NOTION_DB_ID }}/query",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -460,7 +488,7 @@
         96
       ],
       "id": "003b5a49-152e-433a-aa13-dd4e8ce78725",
-      "name": "HTTP Request4",
+      "name": "Notion — Find Page by Jira Key",
       "credentials": {
         "httpHeaderAuth": {
           "id": "QhHsL7gPVAnNLeop",
@@ -491,6 +519,365 @@
       "id": "93d40aa5-798c-4f35-a011-0453f8a7ff10",
       "name": "Wait1",
       "webhookId": "ec6f57af-7dbb-4960-9b6d-fda1a56aed55"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fetched = $('Jira — Get Updated Issues').all().length;\nreturn [{ json: {\n  timestamp: new Date().toISOString(),\n  direction: 'jira_to_notion',\n  event: 'sync_run',\n  level: 'info',\n  executionId: $execution.id,\n  itemsProcessed: fetched,\n  detail: `Jira → Notion: ${fetched} updated issue(s) processed`\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        40
+      ],
+      "id": "e60cf2f7-925f-4ad0-b95a-9ca4a53d64be",
+      "name": "Build Jira→Notion Summary"
+    },
+    {
+      "parameters": {
+        "jsCode": "const changed = $('Notion — Get Changed Pages').all().length;\nreturn [{ json: {\n  timestamp: new Date().toISOString(),\n  direction: 'notion_to_jira',\n  event: 'sync_run',\n  level: 'info',\n  executionId: $execution.id,\n  itemsProcessed: changed,\n  detail: `Notion → Jira: ${changed} changed page(s) evaluated`\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        760
+      ],
+      "id": "ddeb281b-4d19-4324-98bb-4a730cdef08c",
+      "name": "Build Notion→Jira Summary"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_sync_log_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "sync_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "direction": "={{ $json.direction }}",
+            "event": "={{ $json.event }}",
+            "level": "={{ $json.level }}",
+            "executionId": "={{ $json.executionId }}",
+            "itemsProcessed": "={{ $json.itemsProcessed }}",
+            "detail": "={{ $json.detail }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "direction",
+              "displayName": "direction",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "level",
+              "displayName": "level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "executionId",
+              "displayName": "executionId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "itemsProcessed",
+              "displayName": "itemsProcessed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "detail",
+              "displayName": "detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -320,
+        40
+      ],
+      "id": "61b8a1fc-17b3-46e9-ac61-0af723d92a21",
+      "name": "Log — Jira→Notion Run",
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_sync_log_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "sync_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "direction": "={{ $json.direction }}",
+            "event": "={{ $json.event }}",
+            "level": "={{ $json.level }}",
+            "executionId": "={{ $json.executionId }}",
+            "itemsProcessed": "={{ $json.itemsProcessed }}",
+            "detail": "={{ $json.detail }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "direction",
+              "displayName": "direction",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "level",
+              "displayName": "level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "executionId",
+              "displayName": "executionId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "itemsProcessed",
+              "displayName": "itemsProcessed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "detail",
+              "displayName": "detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -320,
+        760
+      ],
+      "id": "61857259-382a-4844-8f6d-0719102f667c",
+      "name": "Log — Notion→Jira Run",
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_sync_log_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "sync_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.toISO() }}",
+            "direction": "error",
+            "event": "errored",
+            "level": "error",
+            "executionId": "={{ $execution.id }}",
+            "itemsProcessed": 0,
+            "detail": "={{ $json.message }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "direction",
+              "displayName": "direction",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "level",
+              "displayName": "level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "executionId",
+              "displayName": "executionId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "itemsProcessed",
+              "displayName": "itemsProcessed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "detail",
+              "displayName": "detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -528,
+        1000
+      ],
+      "id": "7129078d-346d-4832-981b-204f28742de0",
+      "name": "Log — Errored",
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     }
   ],
   "pinData": {},
@@ -508,7 +895,13 @@
     },
     "Loop Over Jira Issues": {
       "main": [
-        [],
+        [
+          {
+            "node": "Build Jira→Notion Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Wait",
@@ -522,24 +915,14 @@
       "main": [
         [
           {
-            "node": "Loop Over Jira Issues",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "HTTP Request1",
+            "node": "Notion — Update Page",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Loop Over Jira Issues",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "HTTP Request2",
+            "node": "Notion — Create Page",
             "type": "main",
             "index": 0
           }
@@ -550,6 +933,13 @@
       "main": [
         [
           {
+            "node": "Build Notion→Jira Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Wait1",
             "type": "main",
             "index": 0
@@ -557,7 +947,7 @@
         ]
       ]
     },
-    "IF — Has Jira Key?": {
+    "IF — Has Jira Key & Not Echo?": {
       "main": [
         [
           {
@@ -599,7 +989,7 @@
             "index": 0
           },
           {
-            "node": "HTTP Request",
+            "node": "Jira — Apply Transition",
             "type": "main",
             "index": 0
           }
@@ -635,11 +1025,16 @@
             "node": "Slack — Send Error Alert",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Log — Errored",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
     },
-    "HTTP Request": {
+    "Jira — Apply Transition": {
       "main": [
         [
           {
@@ -650,7 +1045,7 @@
         ]
       ]
     },
-    "HTTP Request3": {
+    "Notion — Get Changed Pages": {
       "main": [
         [
           {
@@ -661,7 +1056,7 @@
         ]
       ]
     },
-    "HTTP Request4": {
+    "Notion — Find Page by Jira Key": {
       "main": [
         [
           {
@@ -676,7 +1071,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request4",
+            "node": "Notion — Find Page by Jira Key",
             "type": "main",
             "index": 0
           }
@@ -687,14 +1082,14 @@
       "main": [
         [
           {
-            "node": "IF — Has Jira Key?",
+            "node": "IF — Has Jira Key & Not Echo?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Every hour (Jira → Notion)": {
+    "Every 2 h at :00 (Jira → Notion)": {
       "main": [
         [
           {
@@ -705,11 +1100,55 @@
         ]
       ]
     },
-    "Every hour (Notion → Jira)": {
+    "Every 2 h at :15 (Notion → Jira)": {
       "main": [
         [
           {
-            "node": "HTTP Request3",
+            "node": "Notion — Get Changed Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Jira→Notion Summary": {
+      "main": [
+        [
+          {
+            "node": "Log — Jira→Notion Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Notion→Jira Summary": {
+      "main": [
+        [
+          {
+            "node": "Log — Notion→Jira Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion — Update Page": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jira Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion — Create Page": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jira Issues",
             "type": "main",
             "index": 0
           }
@@ -723,7 +1162,8 @@
     "binaryMode": "separate",
     "timeSavedMode": "fixed",
     "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "errorWorkflow": "2zXMkBAbL32Pnqrc"
   },
   "versionId": "9815cb8f-62f6-49a3-affc-c257a849a87a",
   "meta": {
