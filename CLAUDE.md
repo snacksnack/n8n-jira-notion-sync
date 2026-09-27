@@ -20,12 +20,13 @@ Message` → a Slack alert.
 
 ```
 workflows/jira_notion_sync.json   the whole thing — the only artifact
+tests/test_contract.py            the frozen contract, read from that JSON
 docker-compose.yaml               local/self-hosted only, unused on n8n Cloud
 .env                              local only, never committed
 README.md                         setup, the sync_log table, operating notes
 ```
 
-There is no source tree, no tests and no CI. The JSON *is* the program.
+The JSON *is* the program; there is no other source tree.
 
 ## Conventions (hold a change to these)
 
@@ -66,10 +67,20 @@ There is no source tree, no tests and no CI. The JSON *is* the program.
 
 ## Testing
 
-There is none — no test suite, no CI, no `.github/`. Verification is a manual
-"Test workflow" run in n8n plus reading the `sync_log` table afterwards. Treat
-any change to the JSON as unverified until it has been imported and run once,
-and say so rather than implying it was checked.
+`pytest` from the repo root (RC1-404) — the contract suite parses the committed
+workflow JSON; no network, no n8n, no credentials, and CI runs it on every push
+with ruff. It freezes exactly the conventions above: every `$('…')` cross-graph
+reference and connection endpoint resolves, echo suppression keeps its 60 s
+`gt` comparison, both lookbacks exceed the schedule interval (a relationship,
+not a literal), the three log nodes keep `onError: continueRegularOutput` +
+retry, no literal secrets, both staggered triggers present, the transition
+mapping keeps its `null` fallback and gate. Renaming a referenced node fails
+the suite on purpose — update the expression and the test, never delete the
+assertion.
+
+The tests prove the JSON, not the deployment: behavior changes are still
+unverified until the file is re-imported and a run has been read out of
+`sync_log`, and say so rather than implying it was checked.
 
 ## Workflow
 

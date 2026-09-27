@@ -1,0 +1,8 @@
+# Test dependencies for the committed workflow (RC1-404).
+# The workflow itself runs in n8n Cloud; nothing here is deployed.
+
+pytest>=8
+ruff>=0.7
+
+# RC1-452 pattern: the Test Optimization reporter for the pytest layer.
+ddtrace>=4.14,<5
